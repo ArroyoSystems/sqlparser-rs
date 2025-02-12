@@ -36,7 +36,7 @@ use serde::{Deserialize, Serialize};
 use sqlparser_derive::{Visit, VisitMut};
 
 use crate::ast::DollarQuotedString;
-use crate::dialect::Dialect;
+use crate::dialect::{ArroyoDialect, Dialect};
 use crate::dialect::{
     BigQueryDialect, DuckDbDialect, GenericDialect, PostgreSqlDialect, SnowflakeDialect,
 };
@@ -1202,7 +1202,7 @@ impl<'a> Tokenizer<'a> {
                     }
                 }
                 // Postgres uses ? for jsonb operators, not prepared statements
-                '?' if dialect_of!(self is PostgreSqlDialect) => {
+                '?' if dialect_of!(self is PostgreSqlDialect | ArroyoDialect) => {
                     chars.next();
                     match chars.peek() {
                         Some('|') => self.consume_and_return(chars, Token::QuestionPipe),
