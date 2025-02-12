@@ -1393,7 +1393,7 @@ impl<'a> Parser<'a> {
             | tok @ Token::PGCubeRoot
             | tok @ Token::AtSign
             | tok @ Token::Tilde
-                if dialect_is!(dialect is PostgreSqlDialect) =>
+                if dialect_is!(dialect is PostgreSqlDialect | ArroyoDialect) =>
             {
                 let op = match tok {
                     Token::DoubleExclamationMark => UnaryOperator::PGPrefixFactorial,
@@ -1437,7 +1437,7 @@ impl<'a> Parser<'a> {
                     ),
                 })
             }
-            Token::EscapedStringLiteral(_) if dialect_is!(dialect is PostgreSqlDialect | GenericDialect) =>
+            Token::EscapedStringLiteral(_) if dialect_is!(dialect is PostgreSqlDialect | GenericDialect | ArroyoDialect) =>
             {
                 self.prev_token();
                 Ok(Expr::Value(self.parse_value()?))
@@ -3103,7 +3103,7 @@ impl<'a> Parser<'a> {
             Token::Caret => {
                 // In PostgreSQL, ^ stands for the exponentiation operation,
                 // and # stands for XOR. See https://www.postgresql.org/docs/current/functions-math.html
-                if dialect_is!(dialect is PostgreSqlDialect) {
+                if dialect_is!(dialect is PostgreSqlDialect | ArroyoDialect) {
                     Some(BinaryOperator::PGExp)
                 } else {
                     Some(BinaryOperator::BitwiseXor)
@@ -3114,22 +3114,22 @@ impl<'a> Parser<'a> {
             Token::DuckIntDiv if dialect_is!(dialect is DuckDbDialect | GenericDialect) => {
                 Some(BinaryOperator::DuckIntegerDivide)
             }
-            Token::ShiftLeft if dialect_is!(dialect is PostgreSqlDialect | DuckDbDialect | GenericDialect | RedshiftSqlDialect) => {
+            Token::ShiftLeft if dialect_is!(dialect is PostgreSqlDialect | DuckDbDialect | ArroyoDialect | GenericDialect | RedshiftSqlDialect) => {
                 Some(BinaryOperator::PGBitwiseShiftLeft)
             }
-            Token::ShiftRight if dialect_is!(dialect is PostgreSqlDialect | DuckDbDialect | GenericDialect | RedshiftSqlDialect) => {
+            Token::ShiftRight if dialect_is!(dialect is PostgreSqlDialect | DuckDbDialect | ArroyoDialect | GenericDialect | RedshiftSqlDialect) => {
                 Some(BinaryOperator::PGBitwiseShiftRight)
             }
-            Token::Sharp if dialect_is!(dialect is PostgreSqlDialect | RedshiftSqlDialect) => {
+            Token::Sharp if dialect_is!(dialect is PostgreSqlDialect | RedshiftSqlDialect | ArroyoDialect) => {
                 Some(BinaryOperator::PGBitwiseXor)
             }
             Token::Overlap if dialect_is!(dialect is PostgreSqlDialect | RedshiftSqlDialect) => {
                 Some(BinaryOperator::PGOverlap)
             }
-            Token::Overlap if dialect_is!(dialect is PostgreSqlDialect | GenericDialect) => {
+            Token::Overlap if dialect_is!(dialect is PostgreSqlDialect | ArroyoDialect | GenericDialect) => {
                 Some(BinaryOperator::PGOverlap)
             }
-            Token::CaretAt if dialect_is!(dialect is PostgreSqlDialect | GenericDialect) => {
+            Token::CaretAt if dialect_is!(dialect is PostgreSqlDialect | ArroyoDialect | GenericDialect) => {
                 Some(BinaryOperator::PGStartsWith)
             }
             Token::Tilde => Some(BinaryOperator::PGRegexMatch),
@@ -7282,7 +7282,7 @@ impl<'a> Parser<'a> {
                         GeneratedAs::ExpStored,
                         Some(GeneratedExpressionMode::Stored),
                     ))
-                } else if dialect_of!(self is PostgreSqlDialect) {
+                } else if dialect_of!(self is PostgreSqlDialect | ArroyoDialect) {
                     // Postgres' AS IDENTITY branches are above, this one needs STORED
                     self.expected("STORED", self.peek_token())
                 } else if self.parse_keywords(&[Keyword::VIRTUAL]) {
@@ -8793,7 +8793,7 @@ impl<'a> Parser<'a> {
             }) => Ok(value),
             Token::SingleQuotedString(s) => Ok(s),
             Token::DoubleQuotedString(s) => Ok(s),
-            Token::EscapedStringLiteral(s) if dialect_of!(self is PostgreSqlDialect | GenericDialect) => {
+            Token::EscapedStringLiteral(s) if dialect_of!(self is PostgreSqlDialect | ArroyoDialect | GenericDialect) => {
                 Ok(s)
             }
             Token::UnicodeStringLiteral(s) => Ok(s),
@@ -9115,7 +9115,8 @@ impl<'a> Parser<'a> {
                     let field_defs = self.parse_duckdb_struct_type_def()?;
                     Ok(DataType::Struct(field_defs, StructBracketKind::Parentheses))
                 }
-                Keyword::STRUCT if dialect_is!(dialect is BigQueryDialect | GenericDialect) => {
+                Keyword::STRUCT if dialect_is!(dialect is BigQueryDialect | ArroyoDialect | GenericDialect) =>
+                {
                     self.prev_token();
                     let (field_defs, _trailing_bracket) =
                         self.parse_struct_type_def(Self::parse_struct_field_def)?;
@@ -11664,7 +11665,7 @@ impl<'a> Parser<'a> {
                 }),
                 alias,
             })
-        } else if dialect_of!(self is BigQueryDialect | PostgreSqlDialect | GenericDialect)
+        } else if dialect_of!(self is BigQueryDialect | PostgreSqlDialect | ArroyoDialect | GenericDialect)
             && self.parse_keyword(Keyword::UNNEST)
         {
             self.expect_token(&Token::LParen)?;
@@ -12919,12 +12920,13 @@ impl<'a> Parser<'a> {
             let table = self.parse_keyword(Keyword::TABLE);
             let table_object = self.parse_table_object()?;
 
-            let table_alias =
-                if dialect_of!(self is PostgreSqlDialect) && self.parse_keyword(Keyword::AS) {
-                    Some(self.parse_identifier()?)
-                } else {
-                    None
-                };
+            let table_alias = if dialect_of!(self is PostgreSqlDialect | ArroyoDialect)
+                && self.parse_keyword(Keyword::AS)
+            {
+                Some(self.parse_identifier()?)
+            } else {
+                None
+            };
 
             let is_mysql = dialect_of!(self is MySqlDialect);
 

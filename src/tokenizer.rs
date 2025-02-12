@@ -40,7 +40,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "visitor")]
 use sqlparser_derive::{Visit, VisitMut};
 
-use crate::dialect::Dialect;
+use crate::dialect::{Dialect};
 use crate::dialect::{
     BigQueryDialect, DuckDbDialect, GenericDialect, MySqlDialect, PostgreSqlDialect,
     SnowflakeDialect,
