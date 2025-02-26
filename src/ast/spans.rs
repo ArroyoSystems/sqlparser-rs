@@ -695,6 +695,9 @@ impl Spanned for TableConstraint {
                     .map(|i| i.span)
                     .chain(columns.iter().map(|i| i.span)),
             ),
+            TableConstraint::Watermark { column_name, watermark_expr } => {
+                union_spans(watermark_expr.iter().map(|e| e.span()).chain(core::iter::once(column_name.span)))
+            }
         }
     }
 }

@@ -988,6 +988,21 @@ pub enum TableConstraint {
         /// Referred column identifier list.
         columns: Vec<Ident>,
     },
+    /// Arroyo specific: Watermark definition for streaming tables
+    /// Syntax:
+    /// ```sql
+    /// WATERMARK FOR timestamp AS timestamp - INTERVAL '5 seconds'
+    /// ```
+    /// or without an expression
+    /// ```sql
+    /// WATERMARK FOR timestamp
+    /// ```
+    Watermark {
+        /// Column name to be used for the watermark
+        column_name: Ident,
+        /// Optional watermark expression
+        watermark_expr: Option<Expr>,
+    },
 }
 
 impl fmt::Display for TableConstraint {
@@ -1113,6 +1128,16 @@ impl fmt::Display for TableConstraint {
 
                 write!(f, " ({})", display_comma_separated(columns))?;
 
+                Ok(())
+            }
+            Self::Watermark {
+                column_name,
+                watermark_expr,
+            } => {
+                write!(f, "WATERMARK FOR {}", column_name)?;
+                if let Some(expr) = watermark_expr {
+                    write!(f, " AS {}", expr)?;
+                }
                 Ok(())
             }
         }

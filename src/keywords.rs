@@ -952,6 +952,7 @@ define_keywords!(
     VOLUME,
     WAREHOUSE,
     WAREHOUSES,
+    WATERMARK,
     WEEK,
     WEEKS,
     WHEN,
