@@ -7282,7 +7282,7 @@ impl<'a> Parser<'a> {
                         GeneratedAs::ExpStored,
                         Some(GeneratedExpressionMode::Stored),
                     ))
-                } else if dialect_of!(self is PostgreSqlDialect | ArroyoDialect) {
+                } else if dialect_of!(self is PostgreSqlDialect) {
                     // Postgres' AS IDENTITY branches are above, this one needs STORED
                     self.expected("STORED", self.peek_token())
                 } else if self.parse_keywords(&[Keyword::VIRTUAL]) {
