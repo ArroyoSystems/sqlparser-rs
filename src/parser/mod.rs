@@ -6372,6 +6372,35 @@ impl<'a> Parser<'a> {
                     columns,
                 }))
             }
+            Token::Word(w)
+                if w.keyword == Keyword::WATERMARK
+                    && dialect_of!(self is ArroyoDialect | GenericDialect) =>
+            {
+                if let Some(name) = name {
+                    return self.expected(
+                        "WATERMARK option without constraint name",
+                        TokenWithLocation {
+                            token: Token::make_keyword(&name.to_string()),
+                            location: next_token.location,
+                        },
+                    );
+                }
+
+                self.expect_keyword(Keyword::FOR)?;
+                let column_name = self.parse_identifier(false)?;
+
+                // The AS keyword and expression are optional
+                let watermark_expr = if self.parse_keyword(Keyword::AS) {
+                    Some(self.parse_expr()?)
+                } else {
+                    None
+                };
+
+                Ok(Some(TableConstraint::Watermark {
+                    column_name,
+                    watermark_expr,
+                }))
+            }
             _ => {
                 if name.is_some() {
                     self.expected("PRIMARY, UNIQUE, FOREIGN, or CHECK", next_token)

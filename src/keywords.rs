@@ -814,6 +814,7 @@ define_keywords!(
     VIRTUAL,
     VOLATILE,
     WAREHOUSE,
+    WATERMARK,
     WEEK,
     WHEN,
     WHENEVER,
