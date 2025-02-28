@@ -713,6 +713,21 @@ pub enum TableConstraint {
         /// Referred column identifier list.
         columns: Vec<Ident>,
     },
+    /// Arroyo specific: Watermark definition for streaming tables
+    /// Syntax:
+    /// ```sql
+    /// WATERMARK FOR timestamp AS timestamp - INTERVAL '5 seconds'
+    /// ```
+    /// or without an expression
+    /// ```sql
+    /// WATERMARK FOR timestamp
+    /// ```
+    Watermark {
+        /// Column name to be used for the watermark
+        column_name: Ident,
+        /// Optional watermark expression
+        watermark_expr: Option<Expr>,
+    },
 }
 
 impl fmt::Display for TableConstraint {
@@ -835,6 +850,16 @@ impl fmt::Display for TableConstraint {
 
                 write!(f, " ({})", display_comma_separated(columns))?;
 
+                Ok(())
+            }
+            Self::Watermark {
+                column_name,
+                watermark_expr,
+            } => {
+                write!(f, "WATERMARK FOR {}", column_name)?;
+                if let Some(expr) = watermark_expr {
+                    write!(f, " AS {}", expr)?;
+                }
                 Ok(())
             }
         }
@@ -1112,6 +1137,20 @@ pub enum ColumnOption {
         /// false if 'GENERATED ALWAYS' is skipped (option starts with AS)
         generated_keyword: bool,
     },
+    /// `METADATA FROM 'key'`
+    ///
+    /// A special type of column that gets its value from metadata
+    /// associated with the record.
+    ///
+    /// Example:
+    /// ```sql
+    /// CREATE TABLE logs (
+    ///   id TEXT,
+    ///   kafka_topic STRING METADATA FROM 'topic',
+    ///   log TEXT
+    /// )
+    /// ```
+    MetadataField(String),
     /// BigQuery specific: Explicit column options in a view [1] or table [2]
     /// Syntax
     /// ```sql
@@ -1175,6 +1214,7 @@ impl fmt::Display for ColumnOption {
             CharacterSet(n) => write!(f, "CHARACTER SET {n}"),
             Comment(v) => write!(f, "COMMENT '{}'", escape_single_quote_string(v)),
             OnUpdate(expr) => write!(f, "ON UPDATE {expr}"),
+            MetadataField(key) => write!(f, "METADATA FROM '{}'", escape_single_quote_string(key)),
             Generated {
                 generated_as,
                 sequence_options,

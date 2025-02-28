@@ -752,7 +752,7 @@ fn test_duckdb_union_datatype() {
             default_ddl_collation: Default::default(),
             with_aggregation_policy: Default::default(),
             with_row_access_policy: Default::default(),
-            with_tags: Default::default()
+            with_tags: Default::default(),
         }),
         stmt
     );

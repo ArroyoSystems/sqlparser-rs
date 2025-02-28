@@ -5950,6 +5950,17 @@ impl<'a> Parser<'a> {
             Ok(Some(ColumnOption::Null))
         } else if self.parse_keyword(Keyword::DEFAULT) {
             Ok(Some(ColumnOption::Default(self.parse_expr()?)))
+        } else if self.parse_keywords(&[Keyword::METADATA, Keyword::FROM])
+            && dialect_of!(self is ArroyoDialect | GenericDialect)
+        {
+            // Parse metadata field syntax: METADATA FROM 'key'
+            let next_token = self.next_token();
+            match next_token.token {
+                Token::SingleQuotedString(value, ..) => {
+                    Ok(Some(ColumnOption::MetadataField(value)))
+                }
+                _ => self.expected("string literal for metadata key", next_token),
+            }
         } else if dialect_of!(self is ClickHouseDialect| GenericDialect)
             && self.parse_keyword(Keyword::MATERIALIZED)
         {
@@ -6091,7 +6102,7 @@ impl<'a> Parser<'a> {
                         GeneratedAs::ExpStored,
                         Some(GeneratedExpressionMode::Stored),
                     ))
-                } else if dialect_of!(self is PostgreSqlDialect | ArroyoDialect) {
+                } else if dialect_of!(self is PostgreSqlDialect) {
                     // Postgres' AS IDENTITY branches are above, this one needs STORED
                     self.expected("STORED", self.peek_token())
                 } else if self.parse_keywords(&[Keyword::VIRTUAL]) {
@@ -6370,6 +6381,35 @@ impl<'a> Parser<'a> {
                     index_type_display,
                     opt_index_name,
                     columns,
+                }))
+            }
+            Token::Word(w)
+                if w.keyword == Keyword::WATERMARK
+                    && dialect_of!(self is ArroyoDialect | GenericDialect) =>
+            {
+                if let Some(name) = name {
+                    return self.expected(
+                        "WATERMARK option without constraint name",
+                        TokenWithLocation {
+                            token: Token::make_keyword(&name.to_string()),
+                            location: next_token.location,
+                        },
+                    );
+                }
+
+                self.expect_keyword(Keyword::FOR)?;
+                let column_name = self.parse_identifier(false)?;
+
+                // The AS keyword and expression are optional
+                let watermark_expr = if self.parse_keyword(Keyword::AS) {
+                    Some(self.parse_expr()?)
+                } else {
+                    None
+                };
+
+                Ok(Some(TableConstraint::Watermark {
+                    column_name,
+                    watermark_expr,
                 }))
             }
             _ => {
