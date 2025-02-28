@@ -1137,6 +1137,20 @@ pub enum ColumnOption {
         /// false if 'GENERATED ALWAYS' is skipped (option starts with AS)
         generated_keyword: bool,
     },
+    /// `METADATA FROM 'key'`
+    ///
+    /// A special type of column that gets its value from metadata
+    /// associated with the record.
+    ///
+    /// Example:
+    /// ```sql
+    /// CREATE TABLE logs (
+    ///   id TEXT,
+    ///   kafka_topic STRING METADATA FROM 'topic',
+    ///   log TEXT
+    /// )
+    /// ```
+    MetadataField(String),
     /// BigQuery specific: Explicit column options in a view [1] or table [2]
     /// Syntax
     /// ```sql
@@ -1200,6 +1214,7 @@ impl fmt::Display for ColumnOption {
             CharacterSet(n) => write!(f, "CHARACTER SET {n}"),
             Comment(v) => write!(f, "COMMENT '{}'", escape_single_quote_string(v)),
             OnUpdate(expr) => write!(f, "ON UPDATE {expr}"),
+            MetadataField(key) => write!(f, "METADATA FROM '{}'", escape_single_quote_string(key)),
             Generated {
                 generated_as,
                 sequence_options,
