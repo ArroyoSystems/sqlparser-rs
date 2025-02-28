@@ -12,7 +12,7 @@
 
 #![warn(clippy::all)]
 
-use sqlparser::ast::{BinaryOperator, Expr, Ident, Statement, TableConstraint};
+use sqlparser::ast::{BinaryOperator, ColumnOption, Expr, Ident, Statement, TableConstraint};
 use sqlparser::dialect::ArroyoDialect;
 use sqlparser::parser::Parser;
 use sqlparser::test_utils;
@@ -79,5 +79,39 @@ fn test_watermark_without_expr() {
             column_name: Ident::new("timestamp"),
             watermark_expr: None,
         }]
+    );
+}
+
+#[test]
+fn test_metadata_field() {
+    let sql = "CREATE TABLE logs (
+        id TEXT,
+        kafka_topic STRING METADATA FROM 'topic',
+        log TEXT
+    )";
+
+    let parse = Parser::parse_sql(&ArroyoDialect {}, sql).unwrap();
+    let Statement::CreateTable(ct) = parse.get(0).unwrap() else {
+        panic!("not create table")
+    };
+
+    assert_eq!(ct.columns.len(), 3);
+
+    // Check the middle column with METADATA FROM
+    let column = &ct.columns[1];
+    assert_eq!(column.name, Ident::new("kafka_topic"));
+
+    // Check for the METADATA FROM option
+    let mut found_metadata = false;
+    for option_def in &column.options {
+        if let ColumnOption::MetadataField(key, _) = &option_def.option {
+            found_metadata = true;
+            assert_eq!(key, "topic");
+        }
+    }
+
+    assert!(
+        found_metadata,
+        "Expected METADATA FROM option in column definition"
     );
 }
