@@ -209,6 +209,10 @@ pub struct CreateTable {
     /// Snowflake "STORAGE_SERIALIZATION_POLICY" clause for Iceberg tables
     /// <https://docs.snowflake.com/en/sql-reference/sql/create-iceberg-table>
     pub storage_serialization_policy: Option<StorageSerializationPolicy>,
+    /// Arroyo-specific: Iceberg partition transforms
+    /// Syntax: PARTITIONED BY (hour(ts), bucket(32, id), truncate(8, color))
+    /// <https://iceberg.apache.org/spec/#partitioning>
+    pub arroyo_partitions: Option<Vec<Expr>>,
 }
 
 impl Display for CreateTable {
@@ -391,6 +395,9 @@ impl Display for CreateTable {
         }
         if let Some(cluster_by) = self.cluster_by.as_ref() {
             write!(f, " CLUSTER BY {cluster_by}")?;
+        }
+        if let Some(arroyo_partitions) = &self.arroyo_partitions {
+            write!(f, " PARTITIONED BY ({})", display_comma_separated(arroyo_partitions))?;
         }
 
         if let Some(options) = self.options.as_ref() {

@@ -585,6 +585,7 @@ impl Spanned for CreateTable {
             catalog: _,                         // todo, Snowflake specific
             catalog_sync: _,                    // todo, Snowflake specific
             storage_serialization_policy: _,    // todo, Snowflake specific
+            arroyo_partitions: _,               // todo, Arroyo specific
         } = self;
 
         union_spans(

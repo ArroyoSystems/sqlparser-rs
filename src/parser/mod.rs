@@ -6785,6 +6785,18 @@ impl<'a> Parser<'a> {
             None
         };
 
+        // Parse Arroyo-specific PARTITIONED BY for Iceberg
+        let arroyo_partitions = if dialect_of!(self is ArroyoDialect | GenericDialect)
+            && self.parse_keywords(&[Keyword::PARTITIONED, Keyword::BY])
+        {
+            self.expect_token(&Token::LParen)?;
+            let partitions = self.parse_comma_separated(Parser::parse_expr)?;
+            self.expect_token(&Token::RParen)?;
+            Some(partitions)
+        } else {
+            None
+        };
+
         let create_table_config = self.parse_optional_create_table_config()?;
 
         let default_charset = if self.parse_keywords(&[Keyword::DEFAULT, Keyword::CHARSET]) {
@@ -6866,6 +6878,7 @@ impl<'a> Parser<'a> {
             .options(create_table_config.options)
             .primary_key(primary_key)
             .strict(strict)
+            .arroyo_partitions(arroyo_partitions)
             .build())
     }
 
