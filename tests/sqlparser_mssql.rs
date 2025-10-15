@@ -1615,6 +1615,7 @@ fn parse_create_table_with_valid_options() {
                 catalog: None,
                 catalog_sync: None,
                 storage_serialization_policy: None,
+                arroyo_partitions: None,
             })
         );
     }
@@ -1768,6 +1769,7 @@ fn parse_create_table_with_identity_column() {
                 catalog: None,
                 catalog_sync: None,
                 storage_serialization_policy: None,
+                arroyo_partitions: None,
             }),
         );
     }

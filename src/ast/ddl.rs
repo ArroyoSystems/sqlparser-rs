@@ -1759,7 +1759,9 @@ impl fmt::Display for ColumnOption {
             Collation(n) => write!(f, "COLLATE {n}"),
             Comment(v) => write!(f, "COMMENT '{}'", escape_single_quote_string(v)),
             OnUpdate(expr) => write!(f, "ON UPDATE {expr}"),
-            MetadataField(key, _) => write!(f, "METADATA FROM '{}'", escape_single_quote_string(key)),
+            MetadataField(key, _) => {
+                write!(f, "METADATA FROM '{}'", escape_single_quote_string(key))
+            }
             Generated {
                 generated_as,
                 sequence_options,

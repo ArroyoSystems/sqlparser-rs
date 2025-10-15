@@ -46,9 +46,10 @@ fn test_watermark_with_expr() {
             watermark_expr: Some(Expr::BinaryOp {
                 left: Box::new(Expr::Identifier(Ident::new("timestamp"))),
                 op: BinaryOperator::Plus,
-                right: Box::new(Expr::Value(test_utils::number("5").with_span(Span::new(
-                    Location::new(5, 4), Location::new(5, 10)
-                )))),
+                right: Box::new(Expr::Value(
+                    test_utils::number("5")
+                        .with_span(Span::new(Location::new(5, 4), Location::new(5, 10)))
+                )),
             }),
         }]
     );
@@ -114,4 +115,142 @@ fn test_metadata_field() {
         found_metadata,
         "Expected METADATA FROM option in column definition"
     );
+}
+
+#[test]
+fn test_iceberg_partitioned_by() {
+    let sql = "CREATE TABLE ice (
+        ts TIMESTAMP NOT NULL,
+        id INT NOT NULL,
+        favorite_color TEXT
+    ) WITH (
+        connector = 'iceberg',
+        format = 'parquet',
+        table_name = 'arroyo_test'
+    ) PARTITIONED BY (
+        hour(ts),
+        bucket(32, id),
+        truncate(8, favorite_color)
+    )";
+
+    let parse = Parser::parse_sql(&ArroyoDialect {}, sql).unwrap();
+    let Statement::CreateTable(ct) = parse.get(0).unwrap() else {
+        panic!("not create table")
+    };
+
+    // Verify basic structure
+    assert_eq!(ct.name.to_string(), "ice");
+    assert_eq!(ct.columns.len(), 3);
+
+    // Verify arroyo_partitions is present
+    let partitions = ct
+        .arroyo_partitions
+        .as_ref()
+        .expect("Expected arroyo_partitions to be Some");
+    assert_eq!(partitions.len(), 3);
+
+    // Check each partition transform
+    // hour(ts)
+    match &partitions[0] {
+        Expr::Function(f) => {
+            assert_eq!(f.name.to_string(), "hour");
+            if let sqlparser::ast::FunctionArguments::List(list) = &f.args {
+                assert_eq!(list.args.len(), 1);
+            } else {
+                panic!("Expected List arguments");
+            }
+        }
+        _ => panic!("Expected Function for hour(ts)"),
+    }
+
+    // bucket(32, id)
+    match &partitions[1] {
+        Expr::Function(f) => {
+            assert_eq!(f.name.to_string(), "bucket");
+            if let sqlparser::ast::FunctionArguments::List(list) = &f.args {
+                assert_eq!(list.args.len(), 2);
+            } else {
+                panic!("Expected List arguments");
+            }
+        }
+        _ => panic!("Expected Function for bucket(32, id)"),
+    }
+
+    // truncate(8, favorite_color)
+    match &partitions[2] {
+        Expr::Function(f) => {
+            assert_eq!(f.name.to_string(), "truncate");
+            if let sqlparser::ast::FunctionArguments::List(list) = &f.args {
+                assert_eq!(list.args.len(), 2);
+            } else {
+                panic!("Expected List arguments");
+            }
+        }
+        _ => panic!("Expected Function for truncate(8, favorite_color)"),
+    }
+
+    // Test round-trip: the formatted output should parse back to the same structure
+    let formatted = ct.to_string();
+    let reparsed = Parser::parse_sql(&ArroyoDialect {}, &formatted).unwrap();
+    let Statement::CreateTable(ct2) = reparsed.get(0).unwrap() else {
+        panic!("not create table on reparse")
+    };
+
+    assert_eq!(ct.arroyo_partitions, ct2.arroyo_partitions);
+}
+
+#[test]
+fn test_iceberg_partitioned_by_single() {
+    let sql = "CREATE TABLE events (
+        event_time TIMESTAMP
+    ) WITH (
+        connector = 'iceberg'
+    ) PARTITIONED BY (day(event_time))";
+
+    let parse = Parser::parse_sql(&ArroyoDialect {}, sql).unwrap();
+    let Statement::CreateTable(ct) = parse.get(0).unwrap() else {
+        panic!("not create table")
+    };
+
+    let partitions = ct
+        .arroyo_partitions
+        .as_ref()
+        .expect("Expected arroyo_partitions");
+    assert_eq!(partitions.len(), 1);
+
+    match &partitions[0] {
+        Expr::Function(f) => {
+            assert_eq!(f.name.to_string(), "day");
+        }
+        _ => panic!("Expected Function for day(event_time)"),
+    }
+}
+
+#[test]
+fn test_iceberg_partitioned_by_identity() {
+    // Test identity transform (just a column name)
+    let sql = "CREATE TABLE data (
+        region TEXT,
+        value INT
+    ) WITH (
+        connector = 'iceberg'
+    ) PARTITIONED BY (region)";
+
+    let parse = Parser::parse_sql(&ArroyoDialect {}, sql).unwrap();
+    let Statement::CreateTable(ct) = parse.get(0).unwrap() else {
+        panic!("not create table")
+    };
+
+    let partitions = ct
+        .arroyo_partitions
+        .as_ref()
+        .expect("Expected arroyo_partitions");
+    assert_eq!(partitions.len(), 1);
+
+    match &partitions[0] {
+        Expr::Identifier(ident) => {
+            assert_eq!(ident.value, "region");
+        }
+        _ => panic!("Expected Identifier for region"),
+    }
 }

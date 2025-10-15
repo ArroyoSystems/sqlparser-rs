@@ -5225,6 +5225,7 @@ fn parse_trigger_related_functions() {
             catalog: None,
             catalog_sync: None,
             storage_serialization_policy: None,
+            arroyo_partitions: None,
         }
     );
 

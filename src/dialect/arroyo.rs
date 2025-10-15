@@ -122,7 +122,6 @@ impl Dialect for ArroyoDialect {
         }
     }
 
-
     fn supports_filter_during_aggregation(&self) -> bool {
         true
     }
@@ -170,7 +169,6 @@ impl Dialect for ArroyoDialect {
     fn supports_comment_on(&self) -> bool {
         true
     }
-
 
     /// Return true if the dialect supports empty projections in SELECT statements
     ///

@@ -585,6 +585,7 @@ impl Spanned for CreateTable {
             catalog: _,                         // todo, Snowflake specific
             catalog_sync: _,                    // todo, Snowflake specific
             storage_serialization_policy: _,    // todo, Snowflake specific
+            arroyo_partitions: _,               // todo, Arroyo specific
         } = self;
 
         union_spans(
@@ -695,9 +696,15 @@ impl Spanned for TableConstraint {
                     .map(|i| i.span)
                     .chain(columns.iter().map(|i| i.span)),
             ),
-            TableConstraint::Watermark { column_name, watermark_expr } => {
-                union_spans(watermark_expr.iter().map(|e| e.span()).chain(core::iter::once(column_name.span)))
-            }
+            TableConstraint::Watermark {
+                column_name,
+                watermark_expr,
+            } => union_spans(
+                watermark_expr
+                    .iter()
+                    .map(|e| e.span())
+                    .chain(core::iter::once(column_name.span)),
+            ),
         }
     }
 }

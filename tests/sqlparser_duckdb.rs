@@ -745,6 +745,7 @@ fn test_duckdb_union_datatype() {
             catalog: Default::default(),
             catalog_sync: Default::default(),
             storage_serialization_policy: Default::default(),
+            arroyo_partitions: Default::default(),
         }),
         stmt
     );
