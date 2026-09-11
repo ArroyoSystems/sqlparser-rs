@@ -1155,6 +1155,7 @@ define_keywords!(
     WAITFOR,
     WAREHOUSE,
     WAREHOUSES,
+    WATERMARK,
     WEEK,
     WEEKS,
     WHEN,

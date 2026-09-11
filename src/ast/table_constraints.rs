@@ -117,6 +117,21 @@ pub enum TableConstraint {
     ///
     /// [1]: https://www.postgresql.org/docs/current/sql-altertable.html
     UniqueUsingIndex(ConstraintUsingIndex),
+    /// Arroyo specific: Watermark definition for streaming tables
+    /// Syntax:
+    /// ```sql
+    /// WATERMARK FOR timestamp AS timestamp - INTERVAL '5 seconds'
+    /// ```
+    /// or without an expression
+    /// ```sql
+    /// WATERMARK FOR timestamp
+    /// ```
+    Watermark {
+        /// Column name to be used for the watermark
+        column_name: Ident,
+        /// Optional watermark expression
+        watermark_expr: Option<Expr>,
+    },
 }
 
 impl From<UniqueConstraint> for TableConstraint {
@@ -166,6 +181,16 @@ impl fmt::Display for TableConstraint {
             TableConstraint::FulltextOrSpatial(constraint) => constraint.fmt(f),
             TableConstraint::PrimaryKeyUsingIndex(c) => c.fmt_with_keyword(f, "PRIMARY KEY"),
             TableConstraint::UniqueUsingIndex(c) => c.fmt_with_keyword(f, "UNIQUE"),
+            TableConstraint::Watermark {
+                column_name,
+                watermark_expr,
+            } => {
+                write!(f, "WATERMARK FOR {column_name}")?;
+                if let Some(expr) = watermark_expr {
+                    write!(f, " AS {expr}")?;
+                }
+                Ok(())
+            }
         }
     }
 }
