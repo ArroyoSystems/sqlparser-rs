@@ -604,6 +604,7 @@ impl Spanned for CreateTable {
             distkey: _,
             sortkey: _,
             backup: _,
+            arroyo_partitions,
         } = self;
 
         union_spans(
@@ -614,7 +615,8 @@ impl Spanned for CreateTable {
                 .chain(query.iter().map(|i| i.span()))
                 .chain(clone.iter().map(|i| i.span()))
                 .chain(partition_of.iter().map(|i| i.span()))
-                .chain(for_values.iter().map(|i| i.span())),
+                .chain(for_values.iter().map(|i| i.span()))
+                .chain(arroyo_partitions.iter().flatten().map(Spanned::span)),
         )
     }
 }
@@ -650,6 +652,12 @@ impl Spanned for TableConstraint {
             TableConstraint::FulltextOrSpatial(constraint) => constraint.span(),
             TableConstraint::PrimaryKeyUsingIndex(constraint)
             | TableConstraint::UniqueUsingIndex(constraint) => constraint.span(),
+            TableConstraint::Watermark {
+                column_name,
+                watermark_expr,
+            } => column_name
+                .span
+                .union_opt(&watermark_expr.as_ref().map(Spanned::span)),
         }
     }
 }
@@ -832,6 +840,7 @@ impl Spanned for ColumnOption {
             ColumnOption::Collation(object_name) => object_name.span(),
             ColumnOption::Comment(_) => Span::empty(),
             ColumnOption::OnUpdate(expr) => expr.span(),
+            ColumnOption::MetadataField(_, span) => *span,
             ColumnOption::Generated { .. } => Span::empty(),
             ColumnOption::Options(vec) => union_spans(vec.iter().map(|i| i.span())),
             ColumnOption::Identity(..) => Span::empty(),

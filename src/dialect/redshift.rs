@@ -33,6 +33,14 @@ pub struct RedshiftSqlDialect {}
 // in the Postgres dialect, the query will be parsed as an array, while in the Redshift dialect it will
 // be a json path
 impl Dialect for RedshiftSqlDialect {
+    fn supports_sharp_bitwise_xor(&self) -> bool {
+        true
+    }
+
+    fn supports_array_overlap_operator(&self) -> bool {
+        true
+    }
+
     /// Determine if a character starts a potential nested quoted identifier.
     /// Example: RedShift supports the following quote styles to all mean the same thing:
     /// ```sql

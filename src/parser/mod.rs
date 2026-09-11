@@ -1848,7 +1848,7 @@ impl<'a> Parser<'a> {
             | tok @ Token::PGSquareRoot
             | tok @ Token::PGCubeRoot
             | tok @ Token::AtSign
-                if dialect_is!(dialect is PostgreSqlDialect) =>
+                if dialect.supports_pg_math_prefix_operators() =>
             {
                 let op = match tok {
                     Token::DoubleExclamationMark => UnaryOperator::PGPrefixFactorial,
@@ -1898,8 +1898,7 @@ impl<'a> Parser<'a> {
                     ),
                 })
             }
-            Token::EscapedStringLiteral(_) if dialect_is!(dialect is PostgreSqlDialect | GenericDialect) =>
-            {
+            Token::EscapedStringLiteral(_) if dialect.supports_escaped_string_literal() => {
                 self.prev_token();
                 Ok(Expr::Value(self.parse_value()?))
             }
@@ -3762,7 +3761,7 @@ impl<'a> Parser<'a> {
             Token::Caret => {
                 // In PostgreSQL, ^ stands for the exponentiation operation,
                 // and # stands for XOR. See https://www.postgresql.org/docs/current/functions-math.html
-                if dialect_is!(dialect is PostgreSqlDialect) {
+                if dialect.supports_caret_exponentiation() {
                     Some(BinaryOperator::PGExp)
                 } else {
                     Some(BinaryOperator::BitwiseXor)
@@ -3779,19 +3778,16 @@ impl<'a> Parser<'a> {
             Token::ShiftRight if dialect.supports_bitwise_shift_operators() => {
                 Some(BinaryOperator::PGBitwiseShiftRight)
             }
-            Token::Sharp if dialect_is!(dialect is PostgreSqlDialect | RedshiftSqlDialect) => {
+            Token::Sharp if dialect.supports_sharp_bitwise_xor() => {
                 Some(BinaryOperator::PGBitwiseXor)
             }
-            Token::Overlap if dialect_is!(dialect is PostgreSqlDialect | RedshiftSqlDialect) => {
-                Some(BinaryOperator::PGOverlap)
-            }
-            Token::Overlap if dialect_is!(dialect is PostgreSqlDialect | GenericDialect) => {
+            Token::Overlap if dialect.supports_array_overlap_operator() => {
                 Some(BinaryOperator::PGOverlap)
             }
             Token::Overlap if dialect.supports_double_ampersand_operator() => {
                 Some(BinaryOperator::And)
             }
-            Token::CaretAt if dialect_is!(dialect is PostgreSqlDialect | GenericDialect) => {
+            Token::CaretAt if dialect.supports_starts_with_operator() => {
                 Some(BinaryOperator::PGStartsWith)
             }
             Token::Tilde => Some(BinaryOperator::PGRegexMatch),
@@ -8575,6 +8571,19 @@ impl<'a> Parser<'a> {
             create_table_config.partition_by
         };
 
+        // Keep Hive's PARTITIONED BY column definitions above distinct from
+        // connector partition expressions following WITH table options.
+        let arroyo_partitions = if self.dialect.supports_partitioned_by_expressions()
+            && self.parse_keywords(&[Keyword::PARTITIONED, Keyword::BY])
+        {
+            self.expect_token(&Token::LParen)?;
+            let partitions = self.parse_comma_separated(Parser::parse_expr)?;
+            self.expect_token(&Token::RParen)?;
+            Some(partitions)
+        } else {
+            None
+        };
+
         let on_commit = if self.parse_keywords(&[Keyword::ON, Keyword::COMMIT]) {
             Some(self.parse_create_table_on_commit()?)
         } else {
@@ -8657,6 +8666,7 @@ impl<'a> Parser<'a> {
             .diststyle(diststyle)
             .distkey(distkey)
             .sortkey(sortkey)
+            .arroyo_partitions(arroyo_partitions)
             .build())
     }
 
@@ -9266,6 +9276,16 @@ impl<'a> Parser<'a> {
             Ok(Some(ColumnOption::Null))
         } else if self.parse_keyword(Keyword::DEFAULT) {
             Ok(Some(ColumnOption::Default(self.parse_expr()?)))
+        } else if self.dialect.supports_metadata_column_option()
+            && self.parse_keywords(&[Keyword::METADATA, Keyword::FROM])
+        {
+            let next_token = self.next_token();
+            match next_token.token {
+                Token::SingleQuotedString(value) => {
+                    Ok(Some(ColumnOption::MetadataField(value, next_token.span)))
+                }
+                _ => self.expected("string literal for metadata key", next_token),
+            }
         } else if dialect_of!(self is ClickHouseDialect| GenericDialect)
             && self.parse_keyword(Keyword::MATERIALIZED)
         {
@@ -9925,6 +9945,31 @@ impl<'a> Parser<'a> {
                     }
                     .into(),
                 ))
+            }
+            Token::Word(w)
+                if w.keyword == Keyword::WATERMARK
+                    && self.dialect.supports_watermark_constraint() =>
+            {
+                if let Some(name) = name {
+                    return self.expected(
+                        "WATERMARK option without constraint name",
+                        TokenWithSpan {
+                            token: Token::make_keyword(&name.to_string()),
+                            span: next_token.span,
+                        },
+                    );
+                }
+                self.expect_keyword_is(Keyword::FOR)?;
+                let column_name = self.parse_identifier()?;
+                let watermark_expr = if self.parse_keyword(Keyword::AS) {
+                    Some(self.parse_expr()?)
+                } else {
+                    None
+                };
+                Ok(Some(TableConstraint::Watermark {
+                    column_name,
+                    watermark_expr,
+                }))
             }
             _ => {
                 if name.is_some() {
@@ -12220,7 +12265,7 @@ impl<'a> Parser<'a> {
             }) => Ok(value),
             Token::SingleQuotedString(s) => Ok(s),
             Token::DoubleQuotedString(s) => Ok(s),
-            Token::EscapedStringLiteral(s) if dialect_of!(self is PostgreSqlDialect | GenericDialect) => {
+            Token::EscapedStringLiteral(s) if self.dialect.supports_escaped_string_literal() => {
                 Ok(s)
             }
             Token::UnicodeStringLiteral(s) => Ok(s),
@@ -16119,8 +16164,7 @@ impl<'a> Parser<'a> {
                 alias,
                 sample: None,
             })
-        } else if dialect_of!(self is BigQueryDialect | PostgreSqlDialect | GenericDialect)
-            && self.parse_keyword(Keyword::UNNEST)
+        } else if self.dialect.supports_unnest_table_factor() && self.parse_keyword(Keyword::UNNEST)
         {
             self.expect_token(&Token::LParen)?;
             let array_exprs = self.parse_comma_separated(Parser::parse_expr)?;

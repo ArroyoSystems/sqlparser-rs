@@ -6716,6 +6716,7 @@ fn parse_trigger_related_functions() {
             distkey: None,
             sortkey: None,
             backup: None,
+            arroyo_partitions: None,
         }
     );
 

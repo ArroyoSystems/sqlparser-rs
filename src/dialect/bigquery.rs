@@ -47,6 +47,10 @@ const RESERVED_FOR_COLUMN_ALIAS: &[Keyword] = &[
 pub struct BigQueryDialect;
 
 impl Dialect for BigQueryDialect {
+    fn supports_unnest_table_factor(&self) -> bool {
+        true
+    }
+
     fn parse_statement(&self, parser: &mut Parser) -> Option<Result<Statement, ParserError>> {
         if parser.parse_keyword(Keyword::BEGIN) {
             if parser.peek_keyword(Keyword::TRANSACTION)
