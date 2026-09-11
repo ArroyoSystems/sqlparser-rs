@@ -10,7 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sqlparser::ast::{BinaryOperator, Expr, Spanned, Statement, TableConstraint};
+use sqlparser::ast::{BinaryOperator, ColumnOption, Expr, Spanned, Statement, TableConstraint};
 use sqlparser::dialect::{dialect_from_str, ArroyoDialect, GenericDialect, PostgreSqlDialect};
 use sqlparser::parser::Parser;
 use sqlparser::test_utils::TestedDialects;
@@ -90,6 +90,46 @@ fn invalid_watermark_constraints() {
         "CREATE TABLE events (ts TIMESTAMP, WATERMARK FOR)",
         "CREATE TABLE events (ts TIMESTAMP, WATERMARK FOR ts AS)",
         "CREATE TABLE events (ts TIMESTAMP, CONSTRAINT wm WATERMARK FOR ts)",
+    ] {
+        assert!(Parser::parse_sql(&ArroyoDialect {}, sql).is_err(), "{sql}");
+    }
+}
+
+#[test]
+fn metadata_fields_round_trip() {
+    let dialects = TestedDialects::new(vec![Box::new(ArroyoDialect {}), Box::new(GenericDialect)]);
+    for (literal, key) in [("'topic'", "topic"), ("'it''s a key'", "it's a key")] {
+        let sql = format!(
+            "CREATE TABLE logs (id INT, topic TEXT METADATA FROM {literal} NOT NULL, payload TEXT)"
+        );
+        dialects.verified_stmt(&sql);
+        // The round-trip helper intentionally discards token spans.
+        let Statement::CreateTable(table) = Parser::parse_sql(&ArroyoDialect {}, &sql)
+            .unwrap()
+            .remove(0)
+        else {
+            panic!("expected CREATE TABLE");
+        };
+        assert_eq!(table.columns.len(), 3);
+        let options = &table.columns[1].options;
+        let ColumnOption::MetadataField(actual, span) = &options[0].option else {
+            panic!("expected metadata field");
+        };
+        assert_eq!(actual, key);
+        assert_eq!(options[0].span(), *span);
+        assert_eq!(span.end.column - span.start.column, literal.len() as u64);
+        assert_eq!(options[1].option, ColumnOption::NotNull);
+        assert!(Parser::parse_sql(&PostgreSqlDialect {}, &sql).is_err());
+    }
+}
+
+#[test]
+fn invalid_metadata_fields() {
+    for sql in [
+        "CREATE TABLE logs (topic TEXT METADATA)",
+        "CREATE TABLE logs (topic TEXT METADATA FROM)",
+        "CREATE TABLE logs (topic TEXT METADATA FROM topic)",
+        "CREATE TABLE logs (topic TEXT METADATA FROM 42)",
     ] {
         assert!(Parser::parse_sql(&ArroyoDialect {}, sql).is_err(), "{sql}");
     }

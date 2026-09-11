@@ -1150,6 +1150,11 @@ pub trait Dialect: Debug + Any {
         false
     }
 
+    /// Supports `METADATA FROM 'key'` column options.
+    fn supports_metadata_column_option(&self) -> bool {
+        false
+    }
+
     /// Supports `WATERMARK FOR column [AS expression]` table constraints.
     fn supports_watermark_constraint(&self) -> bool {
         false

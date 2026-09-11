@@ -9262,6 +9262,16 @@ impl<'a> Parser<'a> {
             Ok(Some(ColumnOption::Null))
         } else if self.parse_keyword(Keyword::DEFAULT) {
             Ok(Some(ColumnOption::Default(self.parse_expr()?)))
+        } else if self.dialect.supports_metadata_column_option()
+            && self.parse_keywords(&[Keyword::METADATA, Keyword::FROM])
+        {
+            let next_token = self.next_token();
+            match next_token.token {
+                Token::SingleQuotedString(value) => {
+                    Ok(Some(ColumnOption::MetadataField(value, next_token.span)))
+                }
+                _ => self.expected("string literal for metadata key", next_token),
+            }
         } else if dialect_of!(self is ClickHouseDialect| GenericDialect)
             && self.parse_keyword(Keyword::MATERIALIZED)
         {

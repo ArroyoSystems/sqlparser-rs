@@ -24,6 +24,10 @@ use crate::dialect::Dialect;
 pub struct GenericDialect;
 
 impl Dialect for GenericDialect {
+    fn supports_metadata_column_option(&self) -> bool {
+        true
+    }
+
     fn supports_watermark_constraint(&self) -> bool {
         true
     }

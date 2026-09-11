@@ -1939,6 +1939,9 @@ pub enum ColumnOption {
     Comment(String),
     /// `ON UPDATE <expr>` column option
     OnUpdate(Expr),
+    /// `METADATA FROM 'key'`: a column populated from record metadata in Arroyo.
+    /// The span covers the quoted metadata key.
+    MetadataField(String, Span),
     /// `Generated`s are modifiers that follow a column definition in a `CREATE
     /// TABLE` statement.
     Generated {
@@ -2085,6 +2088,9 @@ impl fmt::Display for ColumnOption {
             Collation(n) => write!(f, "COLLATE {n}"),
             Comment(v) => write!(f, "COMMENT '{}'", escape_single_quote_string(v)),
             OnUpdate(expr) => write!(f, "ON UPDATE {expr}"),
+            MetadataField(key, _) => {
+                write!(f, "METADATA FROM '{}'", escape_single_quote_string(key))
+            }
             Generated {
                 generated_as,
                 sequence_options,
