@@ -3066,6 +3066,9 @@ pub struct CreateTable {
     /// Redshift `BACKUP` option: `BACKUP { YES | NO }`
     /// <https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_TABLE_NEW.html>
     pub backup: Option<bool>,
+    /// Arroyo connector partition expressions, following table options:
+    /// `WITH (...) PARTITIONED BY (hour(ts), bucket(32, id), region)`.
+    pub arroyo_partitions: Option<Vec<Expr>>,
 }
 
 impl fmt::Display for CreateTable {
@@ -3256,8 +3259,25 @@ impl fmt::Display for CreateTable {
         if let Some(cluster_by) = self.cluster_by.as_ref() {
             write!(f, " CLUSTER BY {cluster_by}")?;
         }
-        if let options @ CreateTableOptions::Options(_) = &self.table_options {
-            write!(f, " {options}")?;
+        // Connector partitions are parsed after table options. Keep `OPTIONS`
+        // before them when both are present so GenericDialect does not reparse
+        // the partition expressions as Hive partition columns.
+        if self.arroyo_partitions.is_some() {
+            if let options @ CreateTableOptions::Options(_) = &self.table_options {
+                write!(f, " {options}")?;
+            }
+        }
+        if let Some(partitions) = &self.arroyo_partitions {
+            write!(
+                f,
+                " PARTITIONED BY ({})",
+                display_comma_separated(partitions)
+            )?;
+        }
+        if self.arroyo_partitions.is_none() {
+            if let options @ CreateTableOptions::Options(_) = &self.table_options {
+                write!(f, " {options}")?;
+            }
         }
         if let Some(external_volume) = self.external_volume.as_ref() {
             write!(f, " EXTERNAL_VOLUME='{external_volume}'")?;

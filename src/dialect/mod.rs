@@ -1150,6 +1150,12 @@ pub trait Dialect: Debug + Any {
         false
     }
 
+    /// Supports connector partition expressions after table options:
+    /// `WITH (...) PARTITIONED BY (hour(ts), bucket(32, id))`.
+    fn supports_partitioned_by_expressions(&self) -> bool {
+        false
+    }
+
     /// Supports `METADATA FROM 'key'` column options.
     fn supports_metadata_column_option(&self) -> bool {
         false

@@ -8571,6 +8571,19 @@ impl<'a> Parser<'a> {
             create_table_config.partition_by
         };
 
+        // Keep Hive's PARTITIONED BY column definitions above distinct from
+        // connector partition expressions following WITH table options.
+        let arroyo_partitions = if self.dialect.supports_partitioned_by_expressions()
+            && self.parse_keywords(&[Keyword::PARTITIONED, Keyword::BY])
+        {
+            self.expect_token(&Token::LParen)?;
+            let partitions = self.parse_comma_separated(Parser::parse_expr)?;
+            self.expect_token(&Token::RParen)?;
+            Some(partitions)
+        } else {
+            None
+        };
+
         let on_commit = if self.parse_keywords(&[Keyword::ON, Keyword::COMMIT]) {
             Some(self.parse_create_table_on_commit()?)
         } else {
@@ -8653,6 +8666,7 @@ impl<'a> Parser<'a> {
             .diststyle(diststyle)
             .distkey(distkey)
             .sortkey(sortkey)
+            .arroyo_partitions(arroyo_partitions)
             .build())
     }
 

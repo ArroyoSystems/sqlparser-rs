@@ -20,6 +20,10 @@ use crate::parser::{Parser, ParserError};
 pub struct ArroyoDialect {}
 
 impl Dialect for ArroyoDialect {
+    fn supports_partitioned_by_expressions(&self) -> bool {
+        true
+    }
+
     fn supports_metadata_column_option(&self) -> bool {
         true
     }
