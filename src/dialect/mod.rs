@@ -16,6 +16,7 @@
 // under the License.
 
 mod ansi;
+mod arroyo;
 mod bigquery;
 mod clickhouse;
 mod databricks;
@@ -40,6 +41,7 @@ use core::str::Chars;
 use log::debug;
 
 pub use self::ansi::AnsiDialect;
+pub use self::arroyo::ArroyoDialect;
 pub use self::bigquery::BigQueryDialect;
 pub use self::clickhouse::ClickHouseDialect;
 pub use self::databricks::DatabricksDialect;

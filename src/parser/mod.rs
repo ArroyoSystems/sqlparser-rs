@@ -1848,7 +1848,7 @@ impl<'a> Parser<'a> {
             | tok @ Token::PGSquareRoot
             | tok @ Token::PGCubeRoot
             | tok @ Token::AtSign
-                if dialect_is!(dialect is PostgreSqlDialect) =>
+                if dialect_is!(dialect is PostgreSqlDialect | ArroyoDialect) =>
             {
                 let op = match tok {
                     Token::DoubleExclamationMark => UnaryOperator::PGPrefixFactorial,
@@ -1898,7 +1898,7 @@ impl<'a> Parser<'a> {
                     ),
                 })
             }
-            Token::EscapedStringLiteral(_) if dialect_is!(dialect is PostgreSqlDialect | GenericDialect) =>
+            Token::EscapedStringLiteral(_) if dialect_is!(dialect is PostgreSqlDialect | GenericDialect | ArroyoDialect) =>
             {
                 self.prev_token();
                 Ok(Expr::Value(self.parse_value()?))
@@ -3762,7 +3762,7 @@ impl<'a> Parser<'a> {
             Token::Caret => {
                 // In PostgreSQL, ^ stands for the exponentiation operation,
                 // and # stands for XOR. See https://www.postgresql.org/docs/current/functions-math.html
-                if dialect_is!(dialect is PostgreSqlDialect) {
+                if dialect_is!(dialect is PostgreSqlDialect | ArroyoDialect) {
                     Some(BinaryOperator::PGExp)
                 } else {
                     Some(BinaryOperator::BitwiseXor)
@@ -3779,19 +3779,19 @@ impl<'a> Parser<'a> {
             Token::ShiftRight if dialect.supports_bitwise_shift_operators() => {
                 Some(BinaryOperator::PGBitwiseShiftRight)
             }
-            Token::Sharp if dialect_is!(dialect is PostgreSqlDialect | RedshiftSqlDialect) => {
+            Token::Sharp if dialect_is!(dialect is PostgreSqlDialect | RedshiftSqlDialect | ArroyoDialect) => {
                 Some(BinaryOperator::PGBitwiseXor)
             }
             Token::Overlap if dialect_is!(dialect is PostgreSqlDialect | RedshiftSqlDialect) => {
                 Some(BinaryOperator::PGOverlap)
             }
-            Token::Overlap if dialect_is!(dialect is PostgreSqlDialect | GenericDialect) => {
+            Token::Overlap if dialect_is!(dialect is PostgreSqlDialect | ArroyoDialect | GenericDialect) => {
                 Some(BinaryOperator::PGOverlap)
             }
             Token::Overlap if dialect.supports_double_ampersand_operator() => {
                 Some(BinaryOperator::And)
             }
-            Token::CaretAt if dialect_is!(dialect is PostgreSqlDialect | GenericDialect) => {
+            Token::CaretAt if dialect_is!(dialect is PostgreSqlDialect | ArroyoDialect | GenericDialect) => {
                 Some(BinaryOperator::PGStartsWith)
             }
             Token::Tilde => Some(BinaryOperator::PGRegexMatch),
@@ -12220,7 +12220,7 @@ impl<'a> Parser<'a> {
             }) => Ok(value),
             Token::SingleQuotedString(s) => Ok(s),
             Token::DoubleQuotedString(s) => Ok(s),
-            Token::EscapedStringLiteral(s) if dialect_of!(self is PostgreSqlDialect | GenericDialect) => {
+            Token::EscapedStringLiteral(s) if dialect_of!(self is PostgreSqlDialect | ArroyoDialect | GenericDialect) => {
                 Ok(s)
             }
             Token::UnicodeStringLiteral(s) => Ok(s),
@@ -16119,7 +16119,7 @@ impl<'a> Parser<'a> {
                 alias,
                 sample: None,
             })
-        } else if dialect_of!(self is BigQueryDialect | PostgreSqlDialect | GenericDialect)
+        } else if dialect_of!(self is BigQueryDialect | PostgreSqlDialect | ArroyoDialect | GenericDialect)
             && self.parse_keyword(Keyword::UNNEST)
         {
             self.expect_token(&Token::LParen)?;
