@@ -1939,6 +1939,20 @@ pub enum ColumnOption {
     Comment(String),
     /// `ON UPDATE <expr>` column option
     OnUpdate(Expr),
+    /// `METADATA FROM 'key'`
+    ///
+    /// A special type of column that gets its value from metadata
+    /// associated with the record.
+    ///
+    /// Example:
+    /// ```sql
+    /// CREATE TABLE logs (
+    ///   id TEXT,
+    ///   kafka_topic STRING METADATA FROM 'topic',
+    ///   log TEXT
+    /// )
+    /// ```
+    MetadataField(String, Span),
     /// `Generated`s are modifiers that follow a column definition in a `CREATE
     /// TABLE` statement.
     Generated {
@@ -2085,6 +2099,9 @@ impl fmt::Display for ColumnOption {
             Collation(n) => write!(f, "COLLATE {n}"),
             Comment(v) => write!(f, "COMMENT '{}'", escape_single_quote_string(v)),
             OnUpdate(expr) => write!(f, "ON UPDATE {expr}"),
+            MetadataField(key, _) => {
+                write!(f, "METADATA FROM '{}'", escape_single_quote_string(key))
+            }
             Generated {
                 generated_as,
                 sequence_options,
