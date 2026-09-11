@@ -604,6 +604,7 @@ impl Spanned for CreateTable {
             distkey: _,
             sortkey: _,
             backup: _,
+            arroyo_partitions,
         } = self;
 
         union_spans(
@@ -614,7 +615,8 @@ impl Spanned for CreateTable {
                 .chain(query.iter().map(|i| i.span()))
                 .chain(clone.iter().map(|i| i.span()))
                 .chain(partition_of.iter().map(|i| i.span()))
-                .chain(for_values.iter().map(|i| i.span())),
+                .chain(for_values.iter().map(|i| i.span()))
+                .chain(arroyo_partitions.iter().flatten().map(Spanned::span)),
         )
     }
 }

@@ -3066,6 +3066,9 @@ pub struct CreateTable {
     /// Redshift `BACKUP` option: `BACKUP { YES | NO }`
     /// <https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_TABLE_NEW.html>
     pub backup: Option<bool>,
+    /// Arroyo connector partition expressions, following table options:
+    /// `WITH (...) PARTITIONED BY (hour(ts), bucket(32, id), region)`.
+    pub arroyo_partitions: Option<Vec<Expr>>,
 }
 
 impl fmt::Display for CreateTable {
@@ -3255,6 +3258,13 @@ impl fmt::Display for CreateTable {
         }
         if let Some(cluster_by) = self.cluster_by.as_ref() {
             write!(f, " CLUSTER BY {cluster_by}")?;
+        }
+        if let Some(partitions) = &self.arroyo_partitions {
+            write!(
+                f,
+                " PARTITIONED BY ({})",
+                display_comma_separated(partitions)
+            )?;
         }
         if let options @ CreateTableOptions::Options(_) = &self.table_options {
             write!(f, " {options}")?;

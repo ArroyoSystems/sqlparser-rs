@@ -183,6 +183,8 @@ pub struct CreateTableBuilder {
     pub sortkey: Option<Vec<Expr>>,
     /// Redshift `BACKUP` option.
     pub backup: Option<bool>,
+    /// Arroyo connector partition expressions.
+    pub arroyo_partitions: Option<Vec<Expr>>,
 }
 
 impl CreateTableBuilder {
@@ -248,6 +250,7 @@ impl CreateTableBuilder {
             distkey: None,
             sortkey: None,
             backup: None,
+            arroyo_partitions: None,
         }
     }
     /// Set `OR REPLACE` for the CREATE TABLE statement.
@@ -556,6 +559,12 @@ impl CreateTableBuilder {
         self.backup = backup;
         self
     }
+    /// Set Arroyo connector partition expressions.
+    pub fn arroyo_partitions(mut self, partitions: Option<Vec<Expr>>) -> Self {
+        self.arroyo_partitions = partitions;
+        self
+    }
+
     /// Consume the builder and produce a `CreateTable`.
     pub fn build(self) -> CreateTable {
         CreateTable {
@@ -618,6 +627,7 @@ impl CreateTableBuilder {
             distkey: self.distkey,
             sortkey: self.sortkey,
             backup: self.backup,
+            arroyo_partitions: self.arroyo_partitions,
         }
     }
 }
@@ -699,6 +709,7 @@ impl From<CreateTable> for CreateTableBuilder {
             distkey: table.distkey,
             sortkey: table.sortkey,
             backup: table.backup,
+            arroyo_partitions: table.arroyo_partitions,
         }
     }
 }

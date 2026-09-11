@@ -10,8 +10,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sqlparser::ast::{BinaryOperator, ColumnOption, Expr, Spanned, Statement, TableConstraint};
-use sqlparser::dialect::{dialect_from_str, ArroyoDialect, GenericDialect, PostgreSqlDialect};
+use sqlparser::ast::helpers::stmt_create_table::CreateTableBuilder;
+use sqlparser::ast::{
+    BinaryOperator, ColumnOption, Expr, HiveDistributionStyle, Spanned, Statement, TableConstraint,
+};
+use sqlparser::dialect::{
+    dialect_from_str, ArroyoDialect, GenericDialect, HiveDialect, PostgreSqlDialect,
+};
 use sqlparser::parser::Parser;
 use sqlparser::test_utils::TestedDialects;
 
@@ -132,5 +137,97 @@ fn invalid_metadata_fields() {
         "CREATE TABLE logs (topic TEXT METADATA FROM 42)",
     ] {
         assert!(Parser::parse_sql(&ArroyoDialect {}, sql).is_err(), "{sql}");
+    }
+}
+
+#[test]
+fn connector_partition_expressions_round_trip() {
+    let dialects = TestedDialects::new(vec![Box::new(ArroyoDialect {}), Box::new(GenericDialect)]);
+    for expressions in [
+        vec!["hour(ts)", "bucket(32, id)", "truncate(8, color)"],
+        vec!["day(ts)"],
+        vec!["color"],
+    ] {
+        let sql = format!(
+            "CREATE TABLE ice (ts TIMESTAMP, id INT, color TEXT) WITH (connector = 'iceberg') PARTITIONED BY ({})",
+            expressions.join(", ")
+        );
+        let statement = dialects.verified_stmt(&sql);
+        let Statement::CreateTable(table) = &statement else {
+            panic!("expected CREATE TABLE");
+        };
+        assert_eq!(
+            table.arroyo_partitions,
+            Some(
+                expressions
+                    .iter()
+                    .map(|e| arroyo().verified_expr(e))
+                    .collect()
+            )
+        );
+        assert_eq!(table.hive_distribution, HiveDistributionStyle::NONE);
+        let builder = CreateTableBuilder::try_from(statement.clone()).unwrap();
+        assert_eq!(builder.build(), *table);
+        let rebuilt = CreateTableBuilder::from(table.clone())
+            .arroyo_partitions(None)
+            .arroyo_partitions(table.arroyo_partitions.clone())
+            .build();
+        assert_eq!(rebuilt, *table);
+        assert!(Parser::parse_sql(&PostgreSqlDialect {}, &sql).is_err());
+    }
+}
+
+#[test]
+fn connector_partitions_preserve_source_span() {
+    let sql = r#"CREATE TABLE ice (color TEXT)
+WITH (connector = 'iceberg')
+PARTITIONED BY (color)"#;
+    let Statement::CreateTable(table) =
+        Parser::parse_sql(&ArroyoDialect {}, sql).unwrap().remove(0)
+    else {
+        panic!("expected CREATE TABLE");
+    };
+    let partitions = table.arroyo_partitions.as_ref().unwrap();
+    assert_eq!(partitions[0].span().start.line, 3);
+    assert_eq!(table.span().end, partitions[0].span().end);
+}
+
+#[test]
+fn hive_partition_columns_are_unchanged() {
+    let dialects = TestedDialects::new(vec![
+        Box::new(ArroyoDialect {}),
+        Box::new(GenericDialect),
+        Box::new(HiveDialect {}),
+    ]);
+    for sql in [
+        "CREATE TABLE events (id INT) PARTITIONED BY (region STRING)",
+        "CREATE TABLE events (id INT) PARTITIONED BY (region)",
+    ] {
+        let Statement::CreateTable(table) = dialects.verified_stmt(sql) else {
+            panic!("expected CREATE TABLE");
+        };
+        assert!(table.arroyo_partitions.is_none());
+        assert!(matches!(
+            table.hive_distribution,
+            HiveDistributionStyle::PARTITIONED { .. }
+        ));
+    }
+    let Statement::CreateTable(table) = arroyo().verified_stmt("CREATE TABLE events (id INT)")
+    else {
+        panic!("expected CREATE TABLE");
+    };
+    assert!(table.arroyo_partitions.is_none());
+}
+
+#[test]
+fn invalid_connector_partitions() {
+    for suffix in [
+        "PARTITIONED BY ()",
+        "PARTITIONED BY hour(ts)",
+        "PARTITIONED BY (hour(ts),)",
+        "PARTITIONED BY (hour(ts)) PARTITIONED BY (ts)",
+    ] {
+        let sql = format!("CREATE TABLE ice (ts TIMESTAMP) WITH (connector = 'iceberg') {suffix}");
+        assert!(Parser::parse_sql(&ArroyoDialect {}, &sql).is_err(), "{sql}");
     }
 }
