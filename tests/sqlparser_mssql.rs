@@ -2013,6 +2013,7 @@ fn parse_create_table_with_valid_options() {
                 distkey: None,
                 sortkey: None,
                 backup: None,
+                arroyo_partitions: None,
             })
         );
     }
@@ -2187,6 +2188,7 @@ fn parse_create_table_with_identity_column() {
                 distkey: None,
                 sortkey: None,
                 backup: None,
+                arroyo_partitions: None,
             }),
         );
     }

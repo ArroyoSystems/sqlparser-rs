@@ -8575,6 +8575,18 @@ impl<'a> Parser<'a> {
             create_table_config.partition_by
         };
 
+        // Parse Arroyo-specific PARTITIONED BY for Iceberg
+        let arroyo_partitions = if dialect_of!(self is ArroyoDialect | GenericDialect)
+            && self.parse_keywords(&[Keyword::PARTITIONED, Keyword::BY])
+        {
+            self.expect_token(&Token::LParen)?;
+            let partitions = self.parse_comma_separated(Parser::parse_expr)?;
+            self.expect_token(&Token::RParen)?;
+            Some(partitions)
+        } else {
+            None
+        };
+
         let on_commit = if self.parse_keywords(&[Keyword::ON, Keyword::COMMIT]) {
             Some(self.parse_create_table_on_commit()?)
         } else {
@@ -8657,6 +8669,7 @@ impl<'a> Parser<'a> {
             .diststyle(diststyle)
             .distkey(distkey)
             .sortkey(sortkey)
+            .arroyo_partitions(arroyo_partitions)
             .build())
     }
 
