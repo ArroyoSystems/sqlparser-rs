@@ -10,8 +10,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sqlparser::ast::{BinaryOperator, Expr};
-use sqlparser::dialect::{dialect_from_str, ArroyoDialect, PostgreSqlDialect};
+use sqlparser::ast::{BinaryOperator, Expr, Spanned, Statement, TableConstraint};
+use sqlparser::dialect::{dialect_from_str, ArroyoDialect, GenericDialect, PostgreSqlDialect};
 use sqlparser::parser::Parser;
 use sqlparser::test_utils::TestedDialects;
 
@@ -47,4 +47,50 @@ fn generated_columns_do_not_require_stored() {
         "CREATE TABLE events (raw TEXT, ts TIMESTAMP GENERATED ALWAYS AS (CAST(raw AS TIMESTAMP)))";
     arroyo().verified_stmt(sql);
     assert!(Parser::parse_sql(&PostgreSqlDialect {}, sql).is_err());
+}
+
+#[test]
+fn watermark_constraints_round_trip() {
+    let dialects = TestedDialects::new(vec![Box::new(ArroyoDialect {}), Box::new(GenericDialect)]);
+    for expression in [None, Some("ts - INTERVAL '5 seconds'")] {
+        let suffix = expression.map(|e| format!(" AS {e}")).unwrap_or_default();
+        let sql = format!("CREATE TABLE events (ts TIMESTAMP, WATERMARK FOR ts{suffix}) WITH (connector = 'kafka')");
+        let Statement::CreateTable(table) = dialects.verified_stmt(&sql) else {
+            panic!("expected CREATE TABLE");
+        };
+        let [constraint @ TableConstraint::Watermark {
+            column_name,
+            watermark_expr,
+        }] = table.constraints.as_slice()
+        else {
+            panic!("expected one watermark constraint");
+        };
+        assert_eq!(column_name.value, "ts");
+        assert_eq!(
+            *watermark_expr,
+            expression.map(|e| arroyo().verified_expr(e))
+        );
+        assert_eq!(
+            constraint.span(),
+            column_name
+                .span
+                .union_opt(&watermark_expr.as_ref().map(Spanned::span))
+        );
+        assert!(Parser::parse_sql(&PostgreSqlDialect {}, &sql).is_err());
+    }
+    arroyo().verified_stmt(
+        r#"CREATE TABLE events ("event time" TIMESTAMP, WATERMARK FOR "event time")"#,
+    );
+}
+
+#[test]
+fn invalid_watermark_constraints() {
+    for sql in [
+        "CREATE TABLE events (ts TIMESTAMP, WATERMARK ts)",
+        "CREATE TABLE events (ts TIMESTAMP, WATERMARK FOR)",
+        "CREATE TABLE events (ts TIMESTAMP, WATERMARK FOR ts AS)",
+        "CREATE TABLE events (ts TIMESTAMP, CONSTRAINT wm WATERMARK FOR ts)",
+    ] {
+        assert!(Parser::parse_sql(&ArroyoDialect {}, sql).is_err(), "{sql}");
+    }
 }

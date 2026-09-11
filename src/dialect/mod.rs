@@ -1150,6 +1150,11 @@ pub trait Dialect: Debug + Any {
         false
     }
 
+    /// Supports `WATERMARK FOR column [AS expression]` table constraints.
+    fn supports_watermark_constraint(&self) -> bool {
+        false
+    }
+
     /// Supports PostgreSQL's prefix math operators: `!!`, `|/`, `||/`, and `@`.
     fn supports_pg_math_prefix_operators(&self) -> bool {
         false

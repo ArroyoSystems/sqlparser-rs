@@ -9922,6 +9922,31 @@ impl<'a> Parser<'a> {
                     .into(),
                 ))
             }
+            Token::Word(w)
+                if w.keyword == Keyword::WATERMARK
+                    && self.dialect.supports_watermark_constraint() =>
+            {
+                if let Some(name) = name {
+                    return self.expected(
+                        "WATERMARK option without constraint name",
+                        TokenWithSpan {
+                            token: Token::make_keyword(&name.to_string()),
+                            span: next_token.span,
+                        },
+                    );
+                }
+                self.expect_keyword_is(Keyword::FOR)?;
+                let column_name = self.parse_identifier()?;
+                let watermark_expr = if self.parse_keyword(Keyword::AS) {
+                    Some(self.parse_expr()?)
+                } else {
+                    None
+                };
+                Ok(Some(TableConstraint::Watermark {
+                    column_name,
+                    watermark_expr,
+                }))
+            }
             _ => {
                 if name.is_some() {
                     self.expected("PRIMARY, UNIQUE, FOREIGN, or CHECK", next_token)

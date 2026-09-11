@@ -20,6 +20,10 @@ use crate::parser::{Parser, ParserError};
 pub struct ArroyoDialect {}
 
 impl Dialect for ArroyoDialect {
+    fn supports_watermark_constraint(&self) -> bool {
+        true
+    }
+
     fn identifier_quote_style(&self, _identifier: &str) -> Option<char> {
         Some('"')
     }

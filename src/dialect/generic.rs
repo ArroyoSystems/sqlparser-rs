@@ -24,6 +24,10 @@ use crate::dialect::Dialect;
 pub struct GenericDialect;
 
 impl Dialect for GenericDialect {
+    fn supports_watermark_constraint(&self) -> bool {
+        true
+    }
+
     fn supports_array_overlap_operator(&self) -> bool {
         true
     }

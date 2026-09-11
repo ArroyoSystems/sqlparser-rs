@@ -650,6 +650,12 @@ impl Spanned for TableConstraint {
             TableConstraint::FulltextOrSpatial(constraint) => constraint.span(),
             TableConstraint::PrimaryKeyUsingIndex(constraint)
             | TableConstraint::UniqueUsingIndex(constraint) => constraint.span(),
+            TableConstraint::Watermark {
+                column_name,
+                watermark_expr,
+            } => column_name
+                .span
+                .union_opt(&watermark_expr.as_ref().map(Spanned::span)),
         }
     }
 }
