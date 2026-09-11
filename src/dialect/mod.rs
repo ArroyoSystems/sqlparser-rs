@@ -16,6 +16,7 @@
 // under the License.
 
 mod ansi;
+mod arroyo;
 mod bigquery;
 mod clickhouse;
 mod databricks;
@@ -40,6 +41,7 @@ use core::str::Chars;
 use log::debug;
 
 pub use self::ansi::AnsiDialect;
+pub use self::arroyo::ArroyoDialect;
 pub use self::bigquery::BigQueryDialect;
 pub use self::clickhouse::ClickHouseDialect;
 pub use self::databricks::DatabricksDialect;
@@ -1148,6 +1150,41 @@ pub trait Dialect: Debug + Any {
         false
     }
 
+    /// Supports PostgreSQL's prefix math operators: `!!`, `|/`, `||/`, and `@`.
+    fn supports_pg_math_prefix_operators(&self) -> bool {
+        false
+    }
+
+    /// Interprets `^` as exponentiation rather than bitwise XOR.
+    fn supports_caret_exponentiation(&self) -> bool {
+        false
+    }
+
+    /// Supports `#` as bitwise XOR.
+    fn supports_sharp_bitwise_xor(&self) -> bool {
+        false
+    }
+
+    /// Supports `&&` as the array-overlap operator.
+    fn supports_array_overlap_operator(&self) -> bool {
+        false
+    }
+
+    /// Supports `^@` as the string starts-with operator.
+    fn supports_starts_with_operator(&self) -> bool {
+        false
+    }
+
+    /// Accepts an escaped string literal token as an expression or literal string.
+    fn supports_escaped_string_literal(&self) -> bool {
+        false
+    }
+
+    /// Supports `UNNEST(...)` as a table factor, including ordinality and offsets.
+    fn supports_unnest_table_factor(&self) -> bool {
+        false
+    }
+
     /// Returns true if the dialect supports nested comments
     /// e.g. `/* /* nested */ */`
     fn supports_nested_comments(&self) -> bool {
@@ -1846,6 +1883,7 @@ pub fn dialect_from_str(dialect_name: impl AsRef<str>) -> Option<Box<dyn Dialect
     let dialect_name = dialect_name.as_ref();
     match dialect_name.to_lowercase().as_str() {
         "generic" => Some(Box::new(GenericDialect)),
+        "arroyo" => Some(Box::new(ArroyoDialect {})),
         "mysql" => Some(Box::new(MySqlDialect {})),
         "postgresql" | "postgres" => Some(Box::new(PostgreSqlDialect {})),
         "hive" => Some(Box::new(HiveDialect {})),

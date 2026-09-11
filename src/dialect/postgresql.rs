@@ -59,6 +59,34 @@ const AND_PREC: u8 = 20;
 const OR_PREC: u8 = 10;
 
 impl Dialect for PostgreSqlDialect {
+    fn supports_pg_math_prefix_operators(&self) -> bool {
+        true
+    }
+
+    fn supports_caret_exponentiation(&self) -> bool {
+        true
+    }
+
+    fn supports_sharp_bitwise_xor(&self) -> bool {
+        true
+    }
+
+    fn supports_array_overlap_operator(&self) -> bool {
+        true
+    }
+
+    fn supports_starts_with_operator(&self) -> bool {
+        true
+    }
+
+    fn supports_escaped_string_literal(&self) -> bool {
+        true
+    }
+
+    fn supports_unnest_table_factor(&self) -> bool {
+        true
+    }
+
     fn identifier_quote_style(&self, _identifier: &str) -> Option<char> {
         Some('"')
     }

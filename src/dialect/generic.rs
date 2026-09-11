@@ -24,6 +24,22 @@ use crate::dialect::Dialect;
 pub struct GenericDialect;
 
 impl Dialect for GenericDialect {
+    fn supports_array_overlap_operator(&self) -> bool {
+        true
+    }
+
+    fn supports_starts_with_operator(&self) -> bool {
+        true
+    }
+
+    fn supports_escaped_string_literal(&self) -> bool {
+        true
+    }
+
+    fn supports_unnest_table_factor(&self) -> bool {
+        true
+    }
+
     fn is_delimited_identifier_start(&self, ch: char) -> bool {
         ch == '"' || ch == '`'
     }
